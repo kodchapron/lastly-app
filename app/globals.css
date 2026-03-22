@@ -1,26 +1,121 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* === LASTLY Color Palette === */
+  --color-cream: #f9f8f6;
+  --color-surface: #f5f1ed;
+  --color-surface-2: #efe9e3;
+  --color-primary: #c9b59c;
+  --color-tan: #c4b5a0;
+  --color-tan-dim: #d4cec8;
+  --color-border: #e5e5e5;
+  --color-charcoal: #4a4a4a;
+  --color-muted: #8b8b8b;
+  --color-faint: #cccccc;
+  --color-white: #ffffff;
+  --color-urgent-red: #dc2626;
+  --color-urgent-bg: #fef2f2;
+  --color-success-green: #22c55e;
+  --color-success-bg: #f0fdf4;
+  --color-info-blue: #3b82f6;
+  --color-info-bg: #eff6ff;
+  --color-warning-orange: #f97316;
+  --color-warning-bg: #fff7ed;
+
+  /* === Typography === */
+  --font-sans: var(--font-inter);
+
+  /* === Border Radius === */
+  --radius-input: 12px;
+  --radius-card: 16px;
+  --radius-badge: 9999px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Dark mode — keep cream-based design, no dark override */
+:root {
+  --background: #f9f8f6;
+  --foreground: #4a4a4a;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Mobile-first container */
+.app-shell {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  position: relative;
+  background-color: #f9f8f6;
+  overflow-x: hidden;
+}
+
+/* Scrollable content above fixed floating bottom nav */
+.page-content {
+  padding-bottom: 120px;
+}
+
+/* Progress bar fill animation */
+@keyframes fill-bar {
+  from { width: 0%; }
+  to { width: var(--fill-pct); }
+}
+
+.progress-fill {
+  animation: fill-bar 0.8s ease-out forwards;
+}
+
+/* Fade-in animation for page transitions */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/*
+  BottomNav labels:
+  - Hidden on narrow mobile (< 390px) — icon-only like Figma
+  - Visible on 390px+ (standard iPhone width and up)
+*/
+.nav-label {
+  display: none;
+}
+
+@media (min-width: 390px) {
+  .nav-label {
+    display: block;
+  }
+}
+/* Global Dark Mode Overrides */
+html.dark, html.dark body, html.dark .app-shell {
+  background-color: #1a1a1a !important;
+  color: #eeeeee !important;
+}
+html.dark .bg-\[\#f9f8f6\],
+html.dark .bg-\[\#faf8f5\] {
+  background-color: #1a1a1a !important;
+}
+html.dark .bg-white {
+  background-color: #2a2a2a !important;
+  border-color: #3a3a3a !important;
+  color: #eeeeee;
+}
+html.dark .text-\[\#4a4a4a\],
+html.dark .text-\[\#8b8b8b\] {
+  color: #cccccc !important;
+}
+html.dark .border-\[\#f5f1ed\],
+html.dark .border-\[\#ede8e1\],
+html.dark .border-\[\#f0ebe4\] {
+  border-color: #3a3a3a !important;
+}
+html.dark .bg-\[\#f5f1ed\] {
+  background-color: #333333 !important;
 }

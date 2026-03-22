@@ -1,65 +1,67 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useLanguage } from "@/app/context/LanguageContext";
+import { translations } from "@/app/i18n";
+
+export default function SplashPage() {
+  const router = useRouter();
+  const { lang } = useLanguage();
+  const t = translations[lang];
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.push("/onboarding");
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [router]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div
+      className="flex min-h-dvh flex-col items-center justify-center bg-[#f9f8f6] cursor-pointer fade-in"
+      onClick={() => router.push("/onboarding")}
+    >
+      {/* Logo circle */}
+      <div className="relative w-[150px] h-[147px] mb-8">
+        {/* Outer ring */}
+        <div className="absolute inset-0 rounded-full border-2 border-[#c9b59c]" />
+        {/* Inner image placeholder */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-[90px] h-[72px] flex items-center justify-center">
+            {/* Coffin / flower icon SVG */}
+            <svg width="65" height="65" viewBox="0 0 100 100" fill="none">
+              {/* Heart outline */}
+              <path d="M50 85 C50 85, 15 55, 15 32 C15 15, 35 15, 50 35 C65 15, 85 15, 85 32 C85 55, 50 85, 50 85 Z" stroke="#c9b59c" strokeWidth="5" strokeLinejoin="round" fill="none"/>
+              {/* Lotus stem */}
+              <path d="M50 80 V55" stroke="#c9b59c" strokeWidth="5" strokeLinecap="round"/>
+              {/* Center petal */}
+              <path d="M50 55 C45 40, 50 35, 50 35 C50 35, 55 40, 50 55 Z" fill="#c9b59c"/>
+              {/* Left petal */}
+              <path d="M49 55 C35 50, 30 40, 30 40 C30 40, 40 45, 47 50 Z" fill="#c9b59c"/>
+              {/* Right petal */}
+              <path d="M51 55 C65 50, 70 40, 70 40 C70 40, 60 45, 53 50 Z" fill="#c9b59c"/>
+            </svg>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
+
+      {/* App name */}
+      <h1 className="text-[22px] font-bold text-[#4a4a4a] tracking-widest mb-2">
+        LASTLY
+      </h1>
+
+      {/* Thai tagline */}
+      <p className="text-[14px] text-[#8b8b8b] text-center leading-relaxed px-8">
+        {t.splashTag}
+      </p>
+
+      {/* Subtle pulse dot */}
+      <div className="mt-16 flex gap-1.5">
+        <div className="w-2 h-2 rounded-full bg-[#c9b59c] animate-pulse" />
+        <div className="w-2 h-2 rounded-full bg-[#e5e5e5] animate-pulse [animation-delay:0.2s]" />
+        <div className="w-2 h-2 rounded-full bg-[#e5e5e5] animate-pulse [animation-delay:0.4s]" />
+      </div>
     </div>
   );
 }
