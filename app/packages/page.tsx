@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/app/context/LanguageContext";
 import { translations } from "@/app/i18n";
@@ -26,7 +26,7 @@ function CheckIcon({ active }: { active: boolean }) {
   );
 }
 
-export default function PackagesPage() {
+function PackagesContent() {
   const router = useRouter();
   const [packages, setPackages] = useState<Package[]>([]);
   const [selected, setSelected] = useState<string>("");
@@ -163,5 +163,13 @@ export default function PackagesPage() {
 
       <BottomNav />
     </div>
+  );
+}
+
+export default function PackagesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-[#f9f8f6]" />}>
+      <PackagesContent />
+    </Suspense>
   );
 }
