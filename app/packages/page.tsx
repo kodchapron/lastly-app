@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/app/context/LanguageContext";
 import { translations } from "@/app/i18n";
 import Link from "next/link";
@@ -53,12 +53,19 @@ export default function PackagesPage() {
 
   const selectedPkg = packages.find((p) => p.id === selected);
 
+  const searchParams = useSearchParams();
+  const venueId = searchParams.get("venueId");
+
   function handleConfirm() {
     if (!selectedPkg) return;
     setConfirming(true);
     setTimeout(() => {
       setConfirming(false);
-      router.push(`/map?packageId=${selectedPkg.id}`);
+      if (venueId) {
+        router.push(`/payment-selection?packageId=${selectedPkg.id}&venueId=${venueId}`);
+      } else {
+        router.push(`/map?packageId=${selectedPkg.id}`);
+      }
     }, 1000);
   }
 

@@ -4,11 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
 
-const PACKAGE_PRICES: Record<string, { name: string; price: number }> = {
-  basic: { name: "แพ็กเกจพื้นฐาน", price: 30000 },
-  standard: { name: "แพ็กเกจมาตรฐาน", price: 50000 },
-  premium: { name: "แพ็กเกจฟรีเมียม", price: 80000 },
-};
+import { supabase } from "@/lib/supabase";
 
 const PAYMENT_METHODS = [
   {
@@ -55,12 +51,25 @@ function PaymentSelectionContent() {
   const venueId = searchParams.get("venueId") || "";
   // ✅ กดซ้ำ = deselect
   const [selectedMethod, setSelectedMethod] = useState<string>("");
+  const [pkg, setPkg] = useState<any>(null);
+
+  require("react").useEffect(() => {
+    async function loadPkg() {
+      if (packageId) {
+        const { data } = await supabase.from("packages").select("*").eq("id", packageId).single();
+        if (data) setPkg(data);
+      }
+    }
+    loadPkg();
+  }, [packageId]);
 
   function toggleMethod(id: string) {
     setSelectedMethod((prev) => (prev === id ? "" : id));
   }
 
-  const pkg = PACKAGE_PRICES[packageId] ?? PACKAGE_PRICES.standard;
+  if (!pkg) {
+    return <div className="min-h-dvh bg-[#f9f8f6] flex items-center justify-center text-[13px] text-[#8b8b8b]">กำลังโหลด...</div>;
+  }
 
   return (
     <div className="flex flex-col bg-[#f9f8f6] min-h-dvh">

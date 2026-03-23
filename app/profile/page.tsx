@@ -1,28 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useRef, createContext } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import BottomNav from "@/components/BottomNav";
 import { supabase } from "@/lib/supabase";
-import { useLanguage, Lang } from "@/app/context/LanguageContext";
+import { useLanguage } from "@/app/context/LanguageContext";
 import { translations } from "@/app/i18n";
 
 // ── Dark Mode Context (ใช้ร่วมกับ layout ได้ถ้าต้องการ) ──────────────
 const DarkCtx = createContext({ dark: false, toggle: () => { } });
 
 type Review = { id?: number; name: string; date: string; rating: number; text: string; };
-
-const SEED_TH: Review[] = [
-  { name: "คุณสมศรี", date: "15 ต.ค. 2567", rating: 5, text: "บริการดีมาก ช่วยเหลือดีทุกขั้นตอน" },
-  { name: "คุณประยุกต์", date: "10 ต.ค. 2567", rating: 5, text: "บริการดีมาก" },
-  { name: "คุณวิไล", date: "5 ต.ค. 2567", rating: 5, text: "ประทับใจมาก มืออาชีพ" },
-];
-const SEED_EN: Review[] = [
-  { name: "Somsri", date: "15 Oct 2024", rating: 5, text: "Great service, helpful at every step." },
-  { name: "Prayut", date: "10 Oct 2024", rating: 5, text: "Very good service." },
-  { name: "Wilai", date: "5 Oct 2024", rating: 5, text: "Very impressed, professional." },
-];
 
 function Stars({ rating, size = 14, interactive = false, onRate }: { rating: number; size?: number; interactive?: boolean; onRate?: (r: number) => void }) {
   const [hov, setHov] = useState(0);
@@ -64,59 +52,43 @@ export default function ProfilePage() {
   const { lang, setLang } = useLanguage();
   const t = translations[lang];
 
-  const [profileName, setProfileName] = useState(t.dbName);
-  const [profileEmail, setProfileEmail] = useState("user@example.com");
-  const [profilePhone, setProfilePhone] = useState("08x-xxx-xxxx");
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [totalEvents, setTotalEvents] = useState(0);
-  const [latestEvent, setLatestEvent] = useState<any>(null);
 
   // Load profile from DB
   useEffect(() => {
     async function loadProfile() {
-      let activeId = localStorage.getItem("lastly_profileId");
-      if (activeId) {
-        const { data } = await supabase.from('profiles').select('*').eq('id', activeId).single();
-        if (data) {
-          setProfileId(data.id);
-          setProfileName(data.full_name || "คุณสมชาย วงศ์สุวรรณ");
-          setProfileEmail(data.email || "somchai@email.com");
-          setProfilePhone(data.phone || "081-234-5678");
-          if (data.avatar_url) setProfilePhoto(data.avatar_url);
-          return;
-        }
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) {
+        router.push("/auth");
+        return;
       }
-      
-      const { data: existing } = await supabase.from('profiles').select('*').limit(1).single();
-      if (existing) {
-        setProfileId(existing.id);
-        localStorage.setItem("lastly_profileId", existing.id);
-        setProfileName(existing.full_name || "คุณสมชาย วงศ์สุวรรณ");
-        setProfileEmail(existing.email || "somchai@email.com");
-        setProfilePhone(existing.phone || "081-234-5678");
-        if (existing.avatar_url) setProfilePhoto(existing.avatar_url);
+
+      setProfileId(user.id);
+
+      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      if (data) {
+        setProfileName(data.full_name || user.user_metadata?.full_name || "");
+        setProfileEmail(data.email || user.email || "");
+        setProfilePhone(data.phone || "");
+        if (data.avatar_url) setProfilePhoto(data.avatar_url);
       } else {
-        const newId = crypto.randomUUID();
-        const { data: inserted } = await supabase.from('profiles').insert([{ id: newId, full_name: "คุณสมชาย วงศ์สุวรรณ", email: "somchai@email.com", phone: "081-234-5678" }]).select().single();
-        if (inserted) {
-          setProfileId(inserted.id);
-          localStorage.setItem("lastly_profileId", inserted.id);
-        }
-      }
-      let targetId = activeId;
-      if (!targetId && existing) targetId = existing.id;
-      if (targetId) {
-         const { data: evts } = await supabase.from('events').select('*').eq('profile_id', targetId).order('date', { ascending: false });
-         if (evts) {
-           setTotalEvents(evts.length);
-           if (evts.length > 0) setLatestEvent(evts[0]);
-         }
+        await supabase.from('profiles').insert([{
+          id: user.id,
+          full_name: user.user_metadata?.full_name || "",
+          email: user.email || ""
+        }]);
+        setProfileName(user.user_metadata?.full_name || "");
+        setProfileEmail(user.email || "");
       }
     }
     loadProfile();
-  }, []);
+  }, [router]);
 
   // Load dark mode preference and profile photo
   useEffect(() => {
@@ -141,15 +113,15 @@ export default function ProfilePage() {
   useEffect(() => {
     supabase.from("reviews").select("*").order("created_at", { ascending: false })
       .then(({ data }) => {
-        let finalReviews = (lang === "th" ? SEED_TH : SEED_EN);
         if (data && data.length > 0) {
           const dbReviews = data.map(r => ({
             id: r.id, name: r.name, rating: r.rating, text: r.text,
             date: new Date(r.created_at).toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short", year: "numeric" }),
           }));
-          finalReviews = [...dbReviews, ...finalReviews];
+          setReviews(dbReviews);
+        } else {
+          setReviews([]);
         }
-        setReviews(finalReviews);
       });
   }, [lang]);
 
@@ -221,14 +193,14 @@ export default function ProfilePage() {
       <div className={`${dark ? "bg-[#222]" : "bg-white"} rounded-b-3xl px-6 pt-12 pb-5 transition-colors`}>
         <div className="flex items-start justify-between mb-5">
           <h1 className={`text-[17px] font-semibold ${heading}`}>{t.profile}</h1>
-          <button onClick={() => router.push("/auth")} className="text-[10px] text-[#c4b5a0] border border-[#e5e5e5] px-3 py-1.5 rounded-full">{t.logout}</button>
+          <button onClick={() => router.push("/auth")} className="text-[10px] text-[#c4b5a0] border border-[#e5e5e5] px-3 py-1.5 rounded-full hover:bg-[#f5f1ed] transition-colors">{t.logout}</button>
         </div>
 
         {/* Avatar */}
-        <div className="flex items-center gap-4 mb-5">
+        <div className="flex items-center gap-4">
           <div className="relative">
             <div className="w-16 h-16 rounded-full bg-[#c9b59c] flex items-center justify-center text-white text-xl font-semibold flex-shrink-0 overflow-hidden">
-              {profilePhoto ? <img src={profilePhoto} alt="avatar" className="w-full h-full object-cover" /> : profileName.charAt(2)}
+              {profilePhoto ? <img src={profilePhoto} alt="avatar" className="w-full h-full object-cover" /> : profileName.charAt(0)}
             </div>
             <button onClick={() => fileInputRef.current?.click()}
               className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-[#4a4a4a] flex items-center justify-center border-2 border-white">
@@ -239,22 +211,12 @@ export default function ProfilePage() {
           <div>
             <h2 className={`text-[15px] font-semibold ${heading}`}>{profileName}</h2>
             <p className={`text-[11px] ${sub}`}>{profileEmail}</p>
-            <p className={`text-[11px] ${sub}`}>{profilePhone}</p>
+            {profilePhone && <p className={`text-[11px] ${sub}`}>{profilePhone}</p>}
             <div className="flex items-center gap-1 mt-1">
               <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
               <span className={`text-[9px] ${sub}`}>{t.activeSince}</span>
             </div>
           </div>
-        </div>
-
-        {/* Stats */}
-        <div className="flex divide-x divide-[#f5f1ed]">
-          {[{ v: totalEvents, l: t.stats[0] }, { v: totalEvents, l: t.stats[1] }, { v: totalEvents * 15, l: t.stats[2] }].map(s => (
-            <div key={s.l} className="flex-1 flex flex-col items-center gap-0.5">
-              <span className={`text-[20px] font-bold ${heading}`}>{s.v}</span>
-              <span className={`text-[9.5px] ${sub}`}>{s.l}</span>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -280,12 +242,14 @@ export default function ProfilePage() {
               <div className={`border rounded-2xl p-4 ${card}`}>
                 <div className="flex justify-between items-center mb-3">
                   <p className={`text-[12px] font-semibold ${heading}`}>{t.personalInfo}</p>
-                  <button onClick={() => setEditing(true)} className="text-[10px] text-[#c4b5a0] border border-[#c4b5a0] px-3 py-1 rounded-full">{t.edit}</button>
+                  <button onClick={() => setEditing(true)} className="text-[10px] text-[#c4b5a0] border border-[#c4b5a0] px-3 py-1 rounded-full hover:bg-[#c4b5a0] hover:text-white transition-colors">{t.edit}</button>
                 </div>
                 {[{ label: t.name, value: profileName }, { label: t.email, value: profileEmail }, { label: t.phone, value: profilePhone }].map(item => (
                   <div key={item.label} className={`flex justify-between py-2.5 border-b ${dark ? "border-[#3a3a3a]" : "border-[#f9f8f6]"} last:border-0`}>
                     <span className={`text-[11px] ${sub}`}>{item.label}</span>
-                    <span className={`text-[11px] font-medium ${heading}`}>{item.value}</span>
+                    <span className={`text-[11px] font-medium ${heading}`}>
+                      {item.value || <span className="text-[#c4b5a0] text-[10px]">ยังไม่ได้ระบุ - แตะเพื่อเพิ่ม</span>}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -306,14 +270,14 @@ export default function ProfilePage() {
                   ))}
                   {/* Photo upload button */}
                   <button onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 text-[11px] text-[#c4b5a0] border border-dashed border-[#c4b5a0] rounded-xl py-2.5 px-4">
+                    className="flex items-center gap-2 text-[11px] text-[#c4b5a0] border border-dashed border-[#c4b5a0] rounded-xl py-2.5 px-4 hover:bg-[#f9f8f6] transition-colors">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     {t.changePhoto}
                   </button>
                   <div className="flex gap-2">
-                    <button onClick={() => setEditing(false)} className="flex-1 bg-[#f5f1ed] text-[#4a4a4a] py-3 rounded-xl text-[12px] font-medium">{t.cancel}</button>
+                    <button onClick={() => setEditing(false)} className="flex-1 bg-[#f5f1ed] text-[#4a4a4a] py-3 rounded-xl text-[12px] font-medium hover:bg-[#e9e4de] transition-colors">{t.cancel}</button>
                     <button onClick={handleSaveProfile} disabled={saving}
-                      className="flex-1 bg-[#c4b5a0] text-white py-3 rounded-xl text-[12px] font-semibold disabled:opacity-60 flex items-center justify-center gap-1">
+                      className="flex-1 bg-[#c4b5a0] text-white py-3 rounded-xl text-[12px] font-semibold disabled:opacity-60 flex items-center justify-center gap-1 hover:bg-[#b3a48e] transition-colors">
                       {saving ? <><svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.3" /><path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>{t.saving}</> : t.save}
                     </button>
                   </div>
@@ -343,7 +307,7 @@ export default function ProfilePage() {
                 className={`rounded-xl px-4 py-3 text-[12px] outline-none border border-transparent focus:border-[#c4b5a0] resize-none transition-colors ${inputBg}`} />
               {submitted && <div className="bg-[#f0fdf4] text-[#22c55e] text-[11px] font-medium px-3 py-2 rounded-xl text-center">{t.reviewSuccess}</div>}
               <button onClick={handleSubmitReview} disabled={!userRating || !reviewText.trim() || submitting}
-                className="w-full bg-[#c4b5a0] disabled:bg-[#d4cec8] text-white py-3 rounded-xl text-[12px] font-semibold flex items-center justify-center gap-2">
+                className="w-full bg-[#c4b5a0] disabled:bg-[#d4cec8] text-white py-3 rounded-xl text-[12px] font-semibold flex items-center justify-center gap-2 transition-colors">
                 {submitting ? <><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.3" /><path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>{t.sending}</> : t.sendReview}
               </button>
             </div>
@@ -397,16 +361,16 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <button onClick={() => {
-                    const newState = !notif;
-                    setNotif(newState);
-                    if (newState && "Notification" in window) {
-                      Notification.requestPermission().then(permission => {
-                        if (permission === 'granted') {
-                          new Notification("LASTLY", { body: t.lang === 'th' ? "เปิดการแจ้งเตือนสำเร็จ" : "Notifications Enabled" });
-                        }
-                      });
-                    }
-                  }}
+                  const newState = !notif;
+                  setNotif(newState);
+                  if (newState && "Notification" in window) {
+                    Notification.requestPermission().then(permission => {
+                      if (permission === 'granted') {
+                        new Notification("LASTLY", { body: t.lang === 'th' ? "เปิดการแจ้งเตือนสำเร็จ" : "Notifications Enabled" });
+                      }
+                    });
+                  }
+                }}
                   className={`w-12 h-6 rounded-full transition-colors relative ${notif ? "bg-[#c4b5a0]" : "bg-[#e5e5e5]"}`}>
                   <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notif ? "translate-x-6" : "translate-x-0.5"}`} />
                 </button>
@@ -416,14 +380,14 @@ export default function ProfilePage() {
             {/* Other menu */}
             <div className={`border rounded-2xl px-4 py-2 divide-y ${dark ? "divide-[#3a3a3a]" : "divide-[#f9f8f6]"} ${card}`}>
               <p className={`text-[10px] font-semibold ${sub} pt-3 pb-2 uppercase tracking-wide`}>{t.others}</p>
-              <button className="flex items-center gap-3 py-3 w-full" onClick={() => setLang(lang === 'th' ? 'en' : 'th')}>
+              <button className="flex items-center gap-3 py-3 w-full transition-opacity hover:opacity-80" onClick={() => setLang(lang === 'th' ? 'en' : 'th')}>
                 <div className="w-9 h-9 rounded-xl bg-[#f5f1ed] flex items-center justify-center text-base flex-shrink-0">🌐</div>
                 <p className={`flex-1 text-left text-[12px] font-medium ${heading}`}>{t.lang}</p>
                 <p className={`text-[11px] text-[#c4b5a0] bg-[#f5f1ed] px-2 py-0.5 rounded-full`}>{t.langVal} 🔄</p>
               </button>
-              
+
               {[{ icon: "🔒", label: t.privacy, value: "" }, { icon: "❓", label: t.help, value: "" }].map(item => (
-                <button key={item.label} className="flex items-center gap-3 py-3 w-full">
+                <button key={item.label} className="flex items-center gap-3 py-3 w-full transition-opacity hover:opacity-80">
                   <div className="w-9 h-9 rounded-xl bg-[#f5f1ed] flex items-center justify-center text-base flex-shrink-0">{item.icon}</div>
                   <p className={`flex-1 text-left text-[12px] font-medium ${heading}`}>{item.label}</p>
                   {item.value && <p className={`text-[11px] ${sub}`}>{item.value}</p>}
@@ -437,7 +401,9 @@ export default function ProfilePage() {
         )}
       </div>
 
-      <BottomNav />
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#f0ebe4]">
+        <BottomNav />
+      </div>
     </div>
   );
 }

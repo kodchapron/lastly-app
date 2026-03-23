@@ -90,11 +90,15 @@ export default function SchedulePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const id = localStorage.getItem("lastly_profileId");
-    if (id) {
-      setProfileId(id);
-      fetchEvents(id);
+    async function loadAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (user?.id) {
+        setProfileId(user.id);
+        fetchEvents(user.id);
+      }
     }
+    loadAuth();
   }, []);
 
   async function fetchEvents(uid: string) {

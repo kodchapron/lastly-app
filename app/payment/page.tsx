@@ -6,11 +6,13 @@ import { useLanguage } from "@/app/context/LanguageContext";
 import { translations } from "@/app/i18n";
 import BottomNav from "@/components/BottomNav";
 
-const PACKAGE_PRICES: Record<string, { name: string; price: number }> = {
-  basic: { name: "แพ็กเกจพื้นฐาน", price: 30000 },
-  standard: { name: "แพ็กเกจมาตรฐาน", price: 50000 },
-  premium: { name: "แพ็กเกจฟรีเมียม", price: 80000 },
-};
+import { supabase } from "@/lib/supabase";
+
+function generateEventDate(offsetDays: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function PaymentContent() {
   const router = useRouter();
@@ -18,26 +20,96 @@ function PaymentContent() {
   const { lang } = useLanguage();
   const t = translations[lang];
 
-  const PACKAGE_PRICES: Record<string, { name: string; price: number }> = {
-    basic: { name: t.payPkgBasic, price: 30000 },
-    standard: { name: t.payPkgStandard, price: 50000 },
-    premium: { name: t.payPkgPremium, price: 80000 },
-  };
-
   const method = searchParams.get("method") || "credit";
-  const packageId = searchParams.get("packageId") || "standard";
+  const packageId = searchParams.get("packageId");
+  const venueId = searchParams.get("venueId");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [pkg, setPkg] = useState<any>(null);
+  const [venueData, setVenueData] = useState<any>(null);
 
-  const pkg = PACKAGE_PRICES[packageId] ?? PACKAGE_PRICES.standard;
+  require("react").useEffect(() => {
+    async function loadData() {
+      if (packageId) {
+        const { data } = await supabase.from("packages").select("*").eq("id", packageId).single();
+        if (data) setPkg(data);
+      }
+      if (venueId) {
+        const { data } = await supabase.from("venues").select("*").eq("id", venueId).single();
+        if (data) setVenueData(data);
+      }
+    }
+    loadData();
+  }, [packageId, venueId]);
 
-  function handleComplete() {
+  async function handleComplete() {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setSuccess(true);
-      setTimeout(() => router.push("/schedule"), 1800);
-    }, 2000);
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+
+    if (user && pkg) {
+      // 1. ลงบันทึกงานใหม่ (funerals table)
+      const { data: funeral } = await supabase.from("funerals").insert([{
+        user_id: user.id,
+        package_id: pkg.id,
+        venue_name: venueData?.name_th || "ไม่ระบุสถานที่",
+        venue_address: venueData?.address || "",
+        start_date: generateEventDate(0),
+        end_date: generateEventDate(pkg.days)
+      }]).select().single();
+
+      // 2. สร้าง Events สำหรับกำหนดการอัตโนมัติ (schedule_events / events table)
+      const days = pkg.days || 3;
+      const newEvents = [];
+      const locationName = venueData?.name_th || "สถานที่ที่เลือก";
+
+      // การจัดคิว: วันที่ 1 ถึง (days - 1) คือการสวดอภิธรรม
+      for (let i = 0; i < days - 1; i++) {
+        newEvents.push({
+          profile_id: user.id,
+          date: generateEventDate(i),
+          time: "19:00",
+          end_time: "20:30",
+          title: `สวดพระอภิธรรม (วันที่ ${i + 1})`,
+          subtitle: `แพ็กเกจ: ${pkg.name}`,
+          category: "ceremony",
+          location: locationName
+        });
+      }
+
+      // วันสุดท้าย: ฌาปนกิจ
+      newEvents.push({
+        profile_id: user.id,
+        date: generateEventDate(days - 1),
+        time: "10:00",
+        end_time: "12:00",
+        title: "ถวายภัตตาหารเพล",
+        category: "ceremony",
+        location: locationName
+      });
+      newEvents.push({
+        profile_id: user.id,
+        date: generateEventDate(days - 1),
+        time: "16:00",
+        end_time: "17:30",
+        title: "พิธีฌาปนกิจ",
+        subtitle: "กรุณามาเตรียมพร้อมก่อนเวลา",
+        category: "ceremony",
+        urgent: true,
+        location: locationName
+      });
+
+      await supabase.from("events").insert(newEvents);
+    }
+
+    setLoading(false);
+    setSuccess(true);
+    setTimeout(() => router.push("/schedule"), 1800);
+  }
+
+  if (!pkg) {
+    return <div className="min-h-dvh bg-[#f9f8f6] flex items-center justify-center text-[13px] text-[#8b8b8b]">กำลังโหลด...</div>;
   }
 
   return (

@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
 import { useLanguage } from "@/app/context/LanguageContext";
 import { translations } from "@/app/i18n";
+import { supabase } from "@/lib/supabase";
 
 function SparkleIcon() {
   return (
@@ -54,13 +56,38 @@ function HeartIcon() {
 
 export default function Dashboard() {
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [userName, setUserName] = useState("");
+  const router = useRouter();
   const { lang } = useLanguage();
   const t = translations[lang];
 
   useEffect(() => {
-    const photo = localStorage.getItem("lastly_profilePhoto");
-    if (photo) setProfilePhoto(photo);
-  }, []);
+    async function loadUser() {
+      // 1. Instantly show local cached photo if available for a snappy UI
+      const cachedPhoto = localStorage.getItem("lastly_profilePhoto");
+      if (cachedPhoto) setProfilePhoto(cachedPhoto);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
+      
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      setUserName(profile?.full_name || user.user_metadata?.full_name || user.email || "");
+      if (profile?.avatar_url) {
+        setProfilePhoto(profile.avatar_url);
+        localStorage.setItem("lastly_profilePhoto", profile.avatar_url);
+      }
+    }
+    loadUser();
+  }, [router]);
 
   return (
     <div className="flex flex-col bg-[#f9f8f6] min-h-dvh">
@@ -68,10 +95,10 @@ export default function Dashboard() {
       <div className="px-6 pt-12 pb-4 flex justify-between items-center">
         <div>
           <p className="text-[10px] text-[#8b8b8b] mb-1">{t.dbGreeting}</p>
-          <h1 className="text-[16px] font-semibold text-[#4a4a4a]">{t.dbName}</h1>
+          <h1 className="text-[16px] font-semibold text-[#4a4a4a]">{userName || "ผู้ใช้งาน"}</h1>
         </div>
         <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center shadow-sm bg-[#c9b59c] text-white">
-          {profilePhoto ? <img src={profilePhoto} alt="avatar" className="w-full h-full object-cover" /> : t.dbName.substring(0, 2)}
+          {profilePhoto ? <img src={profilePhoto} alt="avatar" className="w-full h-full object-cover" /> : (userName || "U").substring(0, 2)}
         </div>
       </div>
 
