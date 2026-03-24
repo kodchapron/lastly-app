@@ -63,16 +63,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function loadUser() {
-      // 1. Instantly show local cached photo if available for a snappy UI
-      const cachedPhoto = localStorage.getItem("lastly_profilePhoto");
-      if (cachedPhoto) setProfilePhoto(cachedPhoto);
-
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) {
         router.push("/auth");
         return;
       }
+
+      // 1. Instantly show local cached photo if available for THIS user
+      const cachedPhoto = localStorage.getItem(`lastly_profilePhoto_${user.id}`);
+      if (cachedPhoto) setProfilePhoto(cachedPhoto);
       
       const { data: profile } = await supabase
         .from("profiles")
@@ -81,9 +81,13 @@ export default function Dashboard() {
         .single();
 
       setUserName(profile?.full_name || user.user_metadata?.full_name || user.email || "");
+      
       if (profile?.avatar_url) {
         setProfilePhoto(profile.avatar_url);
-        localStorage.setItem("lastly_profilePhoto", profile.avatar_url);
+        localStorage.setItem(`lastly_profilePhoto_${user.id}`, profile.avatar_url);
+      } else {
+        setProfilePhoto(null);
+        localStorage.removeItem(`lastly_profilePhoto_${user.id}`);
       }
     }
     loadUser();

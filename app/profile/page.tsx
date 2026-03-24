@@ -94,9 +94,12 @@ export default function ProfilePage() {
   useEffect(() => {
     const saved = localStorage.getItem("lastly_dark");
     if (saved === "true") setDark(true);
-    const photo = localStorage.getItem("lastly_profilePhoto");
-    if (photo && !profilePhoto) setProfilePhoto(photo);
-  }, [profilePhoto]);
+    
+    if (profileId) {
+      const photo = localStorage.getItem(`lastly_profilePhoto_${profileId}`);
+      if (photo && !profilePhoto) setProfilePhoto(photo);
+    }
+  }, [profileId, profilePhoto]);
 
   // Apply dark mode to root
   useEffect(() => {
@@ -136,8 +139,8 @@ export default function ProfilePage() {
     reader.onload = async (ev) => {
       const res = ev.target?.result as string;
       setProfilePhoto(res);
-      localStorage.setItem("lastly_profilePhoto", res);
       if (profileId) {
+        localStorage.setItem(`lastly_profilePhoto_${profileId}`, res);
         await supabase.from('profiles').update({ avatar_url: res }).eq('id', profileId);
       }
     };
